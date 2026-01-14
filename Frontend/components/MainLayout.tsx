@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import Sidebar from "./Sidebar"
 import Navbar from "./Navbar"
 import { useAuth } from "@/hooks/useAuth"
@@ -9,25 +8,36 @@ import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isLoading } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       router.push("/login")
     }
-  }, [isAuthenticated, router])
+  }, [isAuthenticated, isLoading, router])
 
-  if (!isAuthenticated) {
-    return null
+  if (!isAuthenticated || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Chargement...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="pl-16 lg:pl-64 transition-all duration-300">
         <Navbar />
-        <main className="flex-1 overflow-y-auto bg-background">{children}</main>
+        <main className="pt-14">
+          <div className="px-4 py-3">
+            {children}
+          </div>
+        </main>
       </div>
     </div>
   )

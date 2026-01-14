@@ -24,28 +24,28 @@ Trois comptes sont disponibles pour tester l'application (mot de passe: `admin12
 ## Structure du projet
 
 ```
-├── app/                      # Next.js App Router pages
-│   ├── layout.tsx           # Root layout avec AuthProvider
-│   ├── page.tsx             # Page d'accueil (redirection)
-│   ├── login/               # Authentification
-│   ├── dashboard/           # Tableau de bord
-│   ├── users/               # Gestion des utilisateurs
-│   ├── personnel/           # Gestion du personnel
-│   ├── departments/         # Gestion des départements
-│   ├── medical/             # Suivi médical
-│   ├── reports/             # Rapports et statistiques
-│   ├── settings/            # Paramètres utilisateur
-│   └── globals.css          # Styles TailwindCSS
-├── components/              # Composants React
-│   ├── MainLayout.tsx       # Layout principal avec navigation
-│   ├── Navbar.tsx           # Barre de navigation
-│   └── Sidebar.tsx          # Menu latéral
-├── context/                 # Contextes React
-│   └── AuthContext.tsx      # Gestion de l'authentification
-├── hooks/                   # Hooks personnalisés
-│   └── useAuth.ts           # Hook d'authentification
-├── public/                  # Fichiers statiques
-└── package.json             # Dépendances du projet
+Frontend├── app/                      # Next.js App Router pages
+        │   ├── layout.tsx           # Root layout avec AuthProvider
+        │   ├── page.tsx             # Page d'accueil (redirection)
+        │   ├── login/               # Authentification
+        │   ├── dashboard/           # Tableau de bord
+        │   ├── users/               # Gestion des utilisateurs
+        │   ├── personnel/           # Gestion du personnel
+        │   ├── departments/         # Gestion des départements
+        │   ├── medical/             # Suivi médical
+        │   ├── reports/             # Rapports et statistiques
+        │   ├── settings/            # Paramètres utilisateur
+        │   └── globals.css          # Styles TailwindCSS
+        ├── components/              # Composants React
+        │   ├── MainLayout.tsx       # Layout principal avec navigation
+        │   ├── Navbar.tsx           # Barre de navigation
+        │   └── Sidebar.tsx          # Menu latéral
+        ├── context/                 # Contextes React
+        │   └── AuthContext.tsx      # Gestion de l'authentification
+        ├── hooks/                   # Hooks personnalisés
+        │   └── useAuth.ts           # Hook d'authentification
+        ├── public/                  # Fichiers statiques
+        └── package.json             # Dépendances du projet
 ```
 
 ## Fonctionnalités
