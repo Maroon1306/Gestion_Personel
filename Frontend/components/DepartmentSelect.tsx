@@ -23,8 +23,9 @@ export default function DepartmentSelect({
   onChange, 
   name = 'department', 
   className = '',
-  label = "Département"
-}: Props) {
+  label = "Département",
+  options
+}: Props & { options?: string[] }) {
   const departmentColors: Record<string, string> = {
     'Distribution et Production Électricité': 'text-blue-700 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300',
     'Distribution et Production Eau': 'text-cyan-700 bg-cyan-100 dark:bg-cyan-900/30 dark:text-cyan-300',
@@ -33,6 +34,8 @@ export default function DepartmentSelect({
     'Support Administratif et du Capital Humain': 'text-amber-700 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300',
     'Médecin Responsable Régional': 'text-rose-700 bg-rose-100 dark:bg-rose-900/30 dark:text-rose-300',
   }
+
+  const list = options && options.length ? options : DEPARTMENTS
 
   return (
     <div className={className}>
@@ -50,11 +53,11 @@ export default function DepartmentSelect({
                  transition-all duration-200 appearance-none cursor-pointer"
       >
         <option value="" className="text-gray-500">Sélectionner un département</option>
-        {DEPARTMENTS.map((d) => (
+        {list.map((d) => (
           <option 
             key={d} 
             value={d}
-            className={`${departmentColors[d]} py-2`}
+            className={`${departmentColors[d] || ''} py-2`}
           >
             {d}
           </option>

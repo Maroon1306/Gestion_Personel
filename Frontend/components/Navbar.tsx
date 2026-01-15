@@ -16,8 +16,8 @@ export default function Navbar() {
   const showSearch = pathname?.startsWith("/personnel") || pathname?.startsWith("/attendance")
 
   return (
-    <nav className="fixed top-0 right-0 left-64 z-40 glass-card border-b px-4 py-2">
-      <div className="flex items-center justify-between">
+    <nav className="fixed top-0 right-0 left-64 z-40 glass-card border-b px-2 py-3">
+      <div className="flex items-center justify-between ml-2">
         {/* Left: Breadcrumb */}
         <div className="flex items-center gap-2 text-sm">
           <span className="text-gray-500 dark:text-gray-400">JIRAMA</span>
@@ -26,6 +26,7 @@ export default function Navbar() {
             {pathname === "/dashboard" && "Tableau de bord"}
             {pathname === "/attendance" && "Pointage"}
             {pathname === "/personnel" && "Personnel"}
+            {pathname === "/calendar" && "Calendrier"}
             {pathname === "/analytics" && "Analytiques"}
             {pathname === "/settings" && "Paramètres"}
           </span>
@@ -39,7 +40,7 @@ export default function Navbar() {
               <input
                 type="text"
                 placeholder="Rechercher employés, matricules, départements..."
-                className="w-full pl-12 pr-2 py-2 rounded-xl border border-gray-300 dark:border-gray-700 
+                className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 
                          bg-white/50 dark:bg-gray-800/50 text-gray-900 dark:text-white 
                          placeholder:text-gray-500 dark:placeholder:text-gray-400
                          focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent 
@@ -102,29 +103,15 @@ export default function Navbar() {
                   className="fixed inset-0 z-40" 
                   onClick={() => setShowUserMenu(false)}
                 />
-                <div className="absolute right-0 top-full mt-2 w-64 glass-card rounded-2xl p-2 
-                              shadow-2xl border border-gray-200 dark:border-gray-800 z-50">
+                <div className="absolute right-0 top-full mt-2 w-64 glass-card rounded-2xl p-2 shadow-2xl border border-gray-200 dark:border-gray-800 bg-zinc-50 z-50">
                   <div className="p-4 border-b border-gray-200 dark:border-gray-800">
                     <p className="font-semibold text-gray-900 dark:text-white">{user?.name}</p>
                     <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
                   </div>
                   <div className="p-2">
-                    <button className="w-full flex items-center gap-3 p-3 rounded-xl 
-                                     hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                      <User className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                      <span className="text-gray-700 dark:text-gray-300">Mon profil</span>
-                    </button>
-                    <button className="w-full flex items-center gap-3 p-3 rounded-xl 
-                                     hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                      <Settings className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                      <span className="text-gray-700 dark:text-gray-300">Paramètres</span>
-                    </button>
-                    <div className="h-px bg-gray-200 dark:bg-gray-800 my-2" />
                     <button
                       onClick={logout}
-                      className="w-full flex items-center gap-3 p-3 rounded-xl 
-                               hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 
-                               transition-colors"
+                      className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors"
                     >
                       <LogOut className="w-5 h-5" />
                       <span>Déconnexion</span>

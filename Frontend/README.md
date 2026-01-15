@@ -82,4 +82,10 @@ npm run start
 
 ## Notes
 
+const demoUsers: Record<string, { user: string; pass: string }> = {
+      admin_user: { user: "admin@jirama.mg", pass: "admin123" },
+      admin_rh: { user: "admin.rh@jirama.mg", pass: "admin123" },
+      user: { user: "user@jirama.mg", pass: "user123" },
+    }
+
 Cette application est prête pour la production et peut être facilement intégrée avec un backend réel. Actuellement, les données sont stockées en mémoire avec localStorage pour la démonstration.

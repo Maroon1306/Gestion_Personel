@@ -99,7 +99,7 @@ export default function DashboardPage() {
 
   return (
     <MainLayout>
-      <div className="p-2 md:p-4 space-y-6">
+      <div className="p-2 md:p-2 space-y-4 mr-6">
         {/* Hero Header */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
           <div className="absolute inset-0 bg-gradient-to-r from-orange-500/10 via-transparent to-amber-500/10" />

@@ -116,7 +116,7 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
+      <nav className="flex-1 p-2 space-y-1 overflow-y-auto ml-4 mt-3">
         {visibleItems.map((item) => {
           const isActive = pathname === item.path || pathname?.startsWith(`${item.path}/`)
           return (
@@ -146,10 +146,8 @@ export default function Sidebar() {
 
       {/* User Profile & Quick Actions */}
       <div className="p-3 border-t border-gray-200 dark:border-gray-800">
-        <div className={`${collapsed ? 'justify-center' : ''} flex items-center gap-3 p-2 
-                       rounded-lg bg-gray-50 dark:bg-gray-800`}>
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 
-                        flex items-center justify-center shadow-sm">
+        <div className={`${collapsed ? 'justify-center' : ''} flex items-center gap-3 p-2 rounded-lg bg-gray-50 dark:bg-gray-800`}>
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-sm">
             <span className="text-white text-xs font-bold">{user?.name?.charAt(0) || 'U'}</span>
           </div>
           {!collapsed && (

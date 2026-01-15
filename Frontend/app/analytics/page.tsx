@@ -49,7 +49,7 @@ export default function AnalyticsPage() {
 
   return (
     <MainLayout>
-      <div className="p-4 space-y-5">
+      <div className="p-2 md:p-2 space-y-4 mr-6">
         {/* Header */}
         <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 p-5">
           <div className="absolute inset-0 bg-grid-white/5 bg-[size:20px_20px]" />
