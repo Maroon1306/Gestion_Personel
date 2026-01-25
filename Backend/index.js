@@ -6,6 +6,9 @@ const authRoutes = require('./routes/auth')
 const personnelRoutes = require('./routes/personnel')
 const departmentsRoutes = require('./routes/departments')
 const attendanceRoutes = require('./routes/attendance')
+const performanceRoutes = require('./routes/performance');
+// Importez le cron job
+//require('./cron');
 
 const app = express()
 const PORT = process.env.PORT || 4000
@@ -32,6 +35,7 @@ app.use('/auth', authRoutes)
 app.use('/personnel', personnelRoutes)
 app.use('/departments', departmentsRoutes)
 app.use('/attendance', attendanceRoutes)
+app.use('/api/performance', performanceRoutes);
 
 app.get('/', (req, res) => res.json({ ok: true, message: 'Backend running' }))
 

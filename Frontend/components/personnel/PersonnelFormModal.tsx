@@ -74,10 +74,8 @@ export default function PersonnelFormModal({ open, onClose, onSave, initial = {}
 
           {/* New fields: sex and salary */}
           <select value={form.sex} onChange={(e) => change('sex', e.target.value)} className="input">
-            <option value="">Sexe</option>
             <option value="Masculin">Masculin</option>
             <option value="Féminin">Féminin</option>
-            <option value="Autre">Autre</option>
           </select>
           <input type="number" value={form.salary as any} onChange={(e) => change('salary', e.target.value)} placeholder="Salaire de base" className="input" />
 

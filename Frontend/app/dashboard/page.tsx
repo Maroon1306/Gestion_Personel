@@ -15,51 +15,51 @@ export default function DashboardPage() {
   useEffect(() => {
     const updateTime = () => {
       const now = new Date()
-      setTime(now.toLocaleTimeString('fr-FR', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
+      setTime(now.toLocaleTimeString('fr-FR', {
+        hour: '2-digit',
+        minute: '2-digit'
       }))
-      
+
       const hour = now.getHours()
       if (hour < 12) setGreeting("Bonjour")
       else if (hour < 18) setGreeting("Bon après-midi")
       else setGreeting("Bonsoir")
     }
-    
+
     updateTime()
     const interval = setInterval(updateTime, 1000)
     return () => clearInterval(interval)
   }, [])
 
   const stats = [
-    { 
-      label: "Employés Actifs", 
-      value: "2,543", 
-      icon: Users, 
+    {
+      label: "Employés Actifs",
+      value: "2,543",
+      icon: Users,
       color: "from-blue-500 to-cyan-500",
       change: "+2.5%",
       trend: "up"
     },
-    { 
-      label: "Pointages Aujourd'hui", 
-      value: "2,345", 
-      icon: Clock, 
+    {
+      label: "Pointages Aujourd'hui",
+      value: "2,345",
+      icon: Clock,
       color: "from-emerald-500 to-green-500",
       change: "+3.2%",
       trend: "up"
     },
-    { 
-      label: "Taux Présence", 
-      value: "94.2%", 
-      icon: Target, 
+    {
+      label: "Taux Présence",
+      value: "94.2%",
+      icon: Target,
       color: "from-violet-500 to-purple-500",
       change: "+0.5%",
       trend: "up"
     },
-    { 
-      label: "Absences", 
-      value: "127", 
-      icon: AlertCircle, 
+    {
+      label: "Absences",
+      value: "127",
+      icon: AlertCircle,
       color: "from-rose-500 to-pink-500",
       change: "-0.3%",
       trend: "down"
@@ -67,24 +67,24 @@ export default function DashboardPage() {
   ]
 
   const quickActions = [
-    { 
-      label: "Pointage Rapide", 
+    {
+      label: "Pointage Rapide",
       description: "Enregistrer présence",
-      icon: Clock, 
+      icon: Clock,
       color: "bg-gradient-to-br from-emerald-500 to-green-500",
       action: () => router.push("/attendance")
     },
-    { 
-      label: "Rapport Hebdo", 
+    {
+      label: "Rapport Hebdo",
       description: "Générer rapport",
-      icon: BarChart3, 
+      icon: BarChart3,
       color: "bg-gradient-to-br from-blue-500 to-cyan-500",
       action: () => router.push("/analytics")
     },
-    { 
-      label: "Gérer Personnel", 
+    {
+      label: "Gérer Personnel",
       description: "Liste employés",
-      icon: Users, 
+      icon: Users,
       color: "bg-gradient-to-br from-violet-500 to-purple-500",
       action: () => router.push("/personnel")
     },
@@ -117,11 +117,11 @@ export default function DashboardPage() {
                       </span>
                     </h1>
                     <p className="text-gray-300 text-sm mt-1">
-                      {time} • {new Date().toLocaleDateString('fr-FR', { 
-                        weekday: 'short', 
-                        day: 'numeric', 
+                      {time} • {new Date().toLocaleDateString('fr-FR', {
+                        weekday: 'short',
+                        day: 'numeric',
                         month: 'short',
-                        year: 'numeric' 
+                        year: 'numeric'
                       })}
                     </p>
                   </div>
@@ -171,7 +171,7 @@ export default function DashboardPage() {
                 <p className="text-xs text-gray-600 dark:text-gray-400">{stat.label}</p>
                 <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800">
                   <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-1.5">
-                    <div 
+                    <div
                       className={`h-1.5 rounded-full bg-gradient-to-r ${stat.color}`}
                       style={{ width: `${Math.random() * 40 + 60}%` }}
                     />
@@ -246,7 +246,7 @@ export default function DashboardPage() {
                       </span>
                     </div>
                     <div className="relative h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                      <div 
+                      <div
                         className={`absolute inset-y-0 left-0 bg-gradient-to-r ${item.color} rounded-full transition-all duration-1000`}
                         style={{ width: `${item.present}%` }}
                       />
@@ -264,8 +264,8 @@ export default function DashboardPage() {
               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Activité Récente</h3>
               <div className="space-y-3">
                 {recentActivity.map((activity, idx) => (
-                  <div 
-                    key={idx} 
+                  <div
+                    key={idx}
                     className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 
                              transition-colors cursor-pointer"
                   >
@@ -282,7 +282,7 @@ export default function DashboardPage() {
                   </div>
                 ))}
               </div>
-              <button 
+              <button
                 onClick={() => router.push("/attendance")}
                 className="w-full mt-4 py-2 text-xs text-center text-orange-600 dark:text-orange-400 
                          hover:text-orange-700 dark:hover:text-orange-300 font-medium transition-colors"
@@ -373,8 +373,14 @@ export default function DashboardPage() {
 }
 
 // Extend Date prototype for getWeek if not exists
+declare global {
+  interface Date {
+    getWeek(): number;
+  }
+}
+
 if (!Date.prototype.getWeek) {
-  Date.prototype.getWeek = function() {
+  Date.prototype.getWeek = function () {
     const date = new Date(this.getTime());
     date.setHours(0, 0, 0, 0);
     date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);

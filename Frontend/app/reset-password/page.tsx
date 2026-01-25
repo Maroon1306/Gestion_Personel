@@ -13,7 +13,7 @@ export default function ResetPasswordPage() {
     confirmPassword: "",
   })
   const [message, setMessage] = useState("")
-  const [messageType, setMessageType] = useState<"success" | "error">("")
+  const [messageType, setMessageType] = useState<"success" | "error" | "">("")
   const [isSubmitted, setIsSubmitted] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -66,11 +66,10 @@ export default function ResetPasswordPage() {
 
               {message && (
                 <div
-                  className={`mb-6 p-4 rounded-lg border flex items-start gap-3 ${
-                    messageType === "error"
+                  className={`mb-6 p-4 rounded-lg border flex items-start gap-3 ${messageType === "error"
                       ? "bg-destructive/10 border-destructive/20"
                       : "bg-green-100/50 border-green-200"
-                  }`}
+                    }`}
                 >
                   {messageType === "error" ? (
                     <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
