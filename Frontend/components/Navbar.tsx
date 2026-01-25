@@ -1,19 +1,16 @@
+// Navbar.tsx
 "use client"
 
 import { useState } from "react"
-import { Search, Bell, Sun, Moon, HelpCircle, User, Settings, LogOut } from "lucide-react"
+import { Bell, Sun, Moon, HelpCircle, User, Settings, LogOut } from "lucide-react"
 import { usePathname } from "next/navigation"
-import { useSearch } from "@/context/SearchContext"
 import { useAuth } from "@/hooks/useAuth"
 
 export default function Navbar() {
   const pathname = usePathname()
-  const { search, setSearch } = useSearch()
   const { user, logout } = useAuth()
   const [darkMode, setDarkMode] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
-
-  const showSearch = pathname?.startsWith("/personnel") || pathname?.startsWith("/attendance")
 
   return (
     <nav className="fixed top-0 right-0 left-64 z-40 glass-card border-b px-2 py-3">
@@ -30,26 +27,6 @@ export default function Navbar() {
             {pathname === "/analytics" && "Analytiques"}
             {pathname === "/settings" && "Paramètres"}
           </span>
-        </div>
-
-        {/* Center: Search */}
-        <div className="flex-1 max-w-xl mx-8">
-          {showSearch && (
-            <div className="relative group">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
-              <input
-                type="text"
-                placeholder="Rechercher employés, matricules, départements..."
-                className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 
-                         bg-white/50 dark:bg-gray-800/50 text-gray-900 dark:text-white 
-                         placeholder:text-gray-500 dark:placeholder:text-gray-400
-                         focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent 
-                         transition-all duration-200"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-          )}
         </div>
 
         {/* Right: Actions */}

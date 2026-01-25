@@ -1,15 +1,14 @@
+// personnel/page.tsx
 "use client"
 
 import { useEffect, useState } from "react"
 import MainLayout from "@/components/MainLayout"
 import { 
-  Search, 
   Plus, 
   Edit, 
   Trash2, 
   Eye, 
   Filter,
-  Download,
   User,
   Mail,
   Phone,
@@ -18,7 +17,8 @@ import {
   Users,
   TrendingUp,
   Shield,
-  Award
+  Award,
+  FileText
 } from "lucide-react"
 import { useSearch } from "@/context/SearchContext"
 import { useAuth } from "@/hooks/useAuth"
@@ -48,16 +48,21 @@ const statusConfig = {
 const departmentColors: Record<string, string> = {
   "Maintenance": "bg-gradient-to-r from-blue-500 to-cyan-500",
   "Ressources Humaines": "bg-gradient-to-r from-emerald-500 to-green-500",
-  "Infrastructure": "bg-gradient-to-r from-violet-500 to-purple-500",
-  "Finance": "bg-gradient-to-r from-rose-500 to-pink-500",
-  "Développement": "bg-gradient-to-r from-amber-500 to-orange-500",
-  "Sécurité": "bg-gradient-to-r from-indigo-500 to-blue-500",
+  "Infrastructure": "bg-gradient-to-br from-violet-500 to-purple-500",
+  "Finance": "bg-gradient-to-br from-rose-500 to-pink-500",
+  "Développement": "bg-gradient-to-br from-amber-500 to-orange-500",
+  "Sécurité": "bg-gradient-to-br from-indigo-500 to-blue-500",
+  "Vente": "bg-gradient-to-br from-teal-500 to-emerald-500",
+  "Production Électrique": "bg-gradient-to-br from-orange-500 to-red-500",
+  "Production Eau": "bg-gradient-to-br from-blue-500 to-indigo-500",
+  "Support RH": "bg-gradient-to-br from-pink-500 to-rose-500",
+  "Médecin": "bg-gradient-to-br from-red-500 to-pink-500",
 }
 
 export default function PersonnelPage() {
-  const { search, setSearch } = useSearch()
+  const { search } = useSearch()
   const { fetchWithAuth } = useAuth()
-  const [personnel, setPersonnel] = useState([])
+  const [personnel, setPersonnel] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedDepartment, setSelectedDepartment] = useState("Tous")
   const [selectedStatus, setSelectedStatus] = useState("Tous")
@@ -72,7 +77,6 @@ export default function PersonnelPage() {
   const [refreshKey, setRefreshKey] = useState(0)
   const limit = 9
 
-  // replace departments source: use backend list if available
   const departments = ["Tous", ...(departmentsList.length ? departmentsList : Array.from(new Set(personnel.map((p) => p.department || ''))).filter(Boolean))]
   const statuses = ["Tous", ...new Set(personnel.map((p) => p.status || ''))]
 
@@ -96,7 +100,7 @@ export default function PersonnelPage() {
           setTotal(data.total)
         }
       } catch (e) {
-        // ignore or set error state
+        console.error(e)
       } finally {
         if (mounted) setLoading(false)
       }
@@ -106,14 +110,15 @@ export default function PersonnelPage() {
   }, [search, fetchWithAuth, selectedDepartment, selectedStatus, page, refreshKey])
 
   useEffect(() => {
-    // load departments list
     async function loadDeps() {
       try {
         const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'}/departments`)
         if (!res.ok) return
         const d = await res.json()
         setDepartmentsList(d.data || [])
-      } catch {}
+      } catch (e) {
+        console.error(e)
+      }
     }
     loadDeps()
   }, [fetchWithAuth])
@@ -121,7 +126,6 @@ export default function PersonnelPage() {
   async function handleSave(payload: any) {
     try {
       if (current && current.id) {
-        // update
         const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'}/personnel/${current.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -136,12 +140,12 @@ export default function PersonnelPage() {
         })
         if (!res.ok) throw new Error('Erreur création')
       }
-      // refresh list
       setModalOpen(false)
       setCurrent(null)
       setRefreshKey(k => k + 1)
     } catch (err) {
-      // handle error
+      console.error(err)
+      alert('Erreur lors de la sauvegarde')
     }
   }
 
@@ -154,11 +158,39 @@ export default function PersonnelPage() {
       setCurrent(null)
       setRefreshKey(k => k + 1)
     } catch (err) {
-      // handle
+      console.error(err)
+      alert('Erreur lors de la suppression')
     }
   }
 
-  // view handlers
+  async function handleDownloadReport(personnelId: number, name: string) {
+    try {
+      const currentDate = new Date()
+      const month = currentDate.getMonth() + 1
+      const year = currentDate.getFullYear()
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'}/attendance/report/${personnelId}?month=${month}&year=${year}`, { 
+        credentials: 'include' 
+      })
+      if (!res.ok) {
+        alert('Erreur lors de la génération du PDF')
+        return
+      }
+      
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `rapport_${name.replace(/\s+/g, '_')}_${year}_${month}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error(err)
+      alert('Erreur lors du téléchargement')
+    }
+  }
+
   function openDetail(person: any) {
     setCurrent(person)
     setDetailOpen(true)
@@ -169,28 +201,35 @@ export default function PersonnelPage() {
     setModalOpen(true)
   }
 
-  // pagination helpers
   const totalPages = Math.max(1, Math.ceil(total / limit))
   function goToPage(p: number) {
     if (p < 1 || p > totalPages) return
     setPage(p)
   }
 
-  const filteredPersonnel = personnel // server already filtered by search
+  const filteredPersonnel = personnel
 
+  // Fetch real stats from backend
   const stats = [
-    { label: "Total Personnel", value: "2,543", change: "+2.5%", icon: Users, color: "from-blue-500 to-cyan-500" },
-    { label: "En Congé", value: "142", change: "-0.3%", icon: Shield, color: "from-amber-500 to-orange-500" },
-    { label: "Performance Moy.", value: "92.5%", change: "+1.2%", icon: TrendingUp, color: "from-emerald-500 to-green-500" },
-    { label: "Top Performers", value: "186", change: "+4.8%", icon: Award, color: "from-violet-500 to-purple-500" },
+    { label: "Total Personnel", value: total.toString(), change: "", icon: Users, color: "from-blue-500 to-cyan-500" },
+    { label: "En Congé", value: personnel.filter(p => p.status === "Congé").length.toString(), change: "", icon: Shield, color: "from-amber-500 to-orange-500" },
+    { label: "Performance Moy.", value: personnel.length > 0 
+      ? `${(personnel.reduce((sum, p) => sum + (p.performance || 0), 0) / personnel.length).toFixed(1)}%` 
+      : "0%", 
+      change: "", icon: TrendingUp, color: "from-emerald-500 to-green-500" },
+    { label: "Top Performers", value: personnel.filter(p => (p.performance || 0) >= 90).length.toString(), change: "", icon: Award, color: "from-violet-500 to-purple-500" },
   ]
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    })
+    try {
+      return new Date(dateString).toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      })
+    } catch {
+      return dateString
+    }
   }
 
   return (
@@ -246,9 +285,11 @@ export default function PersonnelPage() {
                     <div className={`p-2 rounded-lg bg-gradient-to-br ${stat.color} shadow-sm`}>
                       <Icon className="w-4 h-4 text-white" />
                     </div>
-                    <span className={`text-xs font-medium ${stat.change.startsWith('+') ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                      {stat.change}
-                    </span>
+                    {stat.change && (
+                      <span className={`text-xs font-medium ${stat.change.startsWith('+') ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                        {stat.change}
+                      </span>
+                    )}
                   </div>
                   <p className="text-xl font-bold text-gray-900 dark:text-white mb-1">{stat.value}</p>
                   <p className="text-xs text-gray-600 dark:text-gray-400">{stat.label}</p>
@@ -261,22 +302,8 @@ export default function PersonnelPage() {
         {/* Controls Bar */}
         <div className="bg-white dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-800">
           <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-            {/* Search */}
-            <div className="flex-1">
-              <div className="relative group">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-gray-600 dark:group-focus-within:text-gray-300" />
-                <input
-                  type="text"
-                  placeholder="Rechercher un employé par nom, poste, matricule..."
-                  className="w-full pl-10 pr-4 py-2.5 text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-            </div>
-
             {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-2.5">
+            <div className="flex flex-col sm:flex-row gap-2.5 flex-1">
               <div className="relative">
                 <select
                   className="appearance-none pl-10 pr-8 py-2.5 text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -322,11 +349,6 @@ export default function PersonnelPage() {
                   📋
                 </button>
               </div>
-
-              <button className="px-3 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-2">
-                <Download className="w-4 h-4" />
-                Exporter
-              </button>
             </div>
           </div>
         </div>
@@ -337,29 +359,29 @@ export default function PersonnelPage() {
             {filteredPersonnel.map((person) => (
               <div
                 key={person.id}
-                className={`group relative overflow-hidden bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-all duration-200 hover:shadow-md cursor-pointer`}
+                className={`group relative overflow-hidden bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-all duration-200 hover:shadow-md`}
               >
                 <div className="p-4">
                   {/* Header */}
                   <div className="flex items-start gap-3 mb-4">
-                    <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${person.avatarColor} flex items-center justify-center shadow-sm`}>
+                    <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${person.avatarColor || 'from-gray-400 to-gray-600'} flex items-center justify-center shadow-sm`}>
                       <span className="text-white text-sm font-bold">{person.name.charAt(0)}</span>
                     </div>
                     <div className="flex-1">
                       <h3 className="font-bold text-gray-900 dark:text-white text-sm mb-1">{person.name}</h3>
                       <p className="text-xs text-gray-500 dark:text-gray-400">{person.position}</p>
                       <div className="flex items-center gap-2 mt-2">
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusConfig[person.status].color}`}>
-                          {statusConfig[person.status].icon} {person.status}
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusConfig[person.status]?.color || 'bg-gray-100 text-gray-700'}`}>
+                          {statusConfig[person.status]?.icon || '⚪'} {person.status}
                         </span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">{person.id}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">{person.matricule}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Department */}
                   <div className="mb-4">
-                    <span className={`inline-block px-2.5 py-1 rounded-md text-xs font-medium text-white ${departmentColors[person.department]}`}>
+                    <span className={`inline-block px-2.5 py-1 rounded-md text-xs font-medium text-white ${departmentColors[person.department] || 'bg-gradient-to-br from-gray-500 to-gray-700'}`}>
                       {person.department}
                     </span>
                   </div>
@@ -384,30 +406,32 @@ export default function PersonnelPage() {
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-gray-600 dark:text-gray-400">Performance</span>
-                      <span className="font-bold text-gray-900 dark:text-white">{person.performance}%</span>
+                      <span className="font-bold text-gray-900 dark:text-white">{person.performance || 0}%</span>
                     </div>
                     <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-1.5">
                       <div 
-                        className={`h-1.5 rounded-full bg-gradient-to-r ${person.avatarColor}`}
-                        style={{ width: `${person.performance}%` }}
+                        className={`h-1.5 rounded-full bg-gradient-to-r ${person.avatarColor || 'from-gray-400 to-gray-600'}`}
+                        style={{ width: `${Math.min(100, person.performance || 0)}%` }}
                       />
-                    </div>
-                  </div>
-
-                  {/* Projects */}
-                  <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-800">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-600 dark:text-gray-400">Projets</span>
-                      <span className="font-bold text-gray-900 dark:text-white">{person.projects} projets</span>
                     </div>
                   </div>
 
                   {/* Actions */}
                   <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-800">
                     <div className="flex items-center justify-between">
-                      <button className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300" onClick={() => openDetail(person)}>
+                      <button 
+                        onClick={() => openDetail(person)} 
+                        className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300"
+                      >
                         <Eye className="w-3.5 h-3.5" />
                         Voir
+                      </button>
+                      <button 
+                        onClick={() => handleDownloadReport(person.id, person.name)}
+                        className="flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        PDF
                       </button>
                       <button 
                         onClick={(e) => {
@@ -458,7 +482,7 @@ export default function PersonnelPage() {
                     >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${person.avatarColor} flex items-center justify-center`}>
+                          <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${person.avatarColor || 'from-gray-400 to-gray-600'} flex items-center justify-center`}>
                             <span className="text-white text-sm font-bold">{person.name.charAt(0)}</span>
                           </div>
                           <div>
@@ -466,13 +490,13 @@ export default function PersonnelPage() {
                             <div className="flex items-center gap-2 mt-1">
                               <p className="text-xs text-gray-500 dark:text-gray-400">{person.position}</p>
                               <span className="text-xs text-gray-400">•</span>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">{person.id}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">{person.matricule}</p>
                             </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-block px-2.5 py-1 rounded-md text-xs font-medium text-white ${departmentColors[person.department]}`}>
+                        <span className={`inline-block px-2.5 py-1 rounded-md text-xs font-medium text-white ${departmentColors[person.department] || 'bg-gradient-to-br from-gray-500 to-gray-700'}`}>
                           {person.department}
                         </span>
                       </td>
@@ -484,40 +508,44 @@ export default function PersonnelPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium ${statusConfig[person.status].color}`}>
-                            {statusConfig[person.status].icon} {person.status}
+                          <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium ${statusConfig[person.status]?.color || 'bg-gray-100 text-gray-700'}`}>
+                            {statusConfig[person.status]?.icon || '⚪'} {person.status}
                           </span>
                         </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <span className="font-bold text-gray-900 dark:text-white text-sm">{person.performance}%</span>
+                          <span className="font-bold text-gray-900 dark:text-white text-sm">{person.performance || 0}%</span>
                           <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
                             <div 
-                              className={`h-1.5 rounded-full bg-gradient-to-r ${person.avatarColor}`}
-                              style={{ width: `${person.performance}%` }}
+                              className={`h-1.5 rounded-full bg-gradient-to-r ${person.avatarColor || 'from-gray-400 to-gray-600'}`}
+                              style={{ width: `${Math.min(100, person.performance || 0)}%` }}
                             />
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
-                          <button className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                          <button 
+                            onClick={() => openDetail(person)}
+                            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                          >
                             <Eye className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
                           </button>
                           <button 
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setCurrent(person)
-                              setModalOpen(true)
-                            }}
+                            onClick={() => handleDownloadReport(person.id, person.name)}
+                            className="p-1.5 rounded-md hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                          </button>
+                          <button 
+                            onClick={() => openEdit(person)}
                             className="p-1.5 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
                           >
                             <Edit className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                           </button>
                           <button 
-                            onClick={(e) => {
-                              e.stopPropagation()
+                            onClick={() => {
                               setCurrent(person)
                               setDeleteOpen(true)
                             }}
@@ -536,7 +564,7 @@ export default function PersonnelPage() {
         )}
 
         {/* Empty State */}
-        {filteredPersonnel.length === 0 && (
+        {filteredPersonnel.length === 0 && !loading && (
           <div className="text-center py-12">
             <div className="w-16 h-16 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-800 dark:to-gray-700 rounded-xl flex items-center justify-center mx-auto mb-3">
               <Users className="w-8 h-8 text-gray-400 dark:text-gray-500" />
@@ -547,7 +575,6 @@ export default function PersonnelPage() {
             </p>
             <button
               onClick={() => {
-                setSearch("")
                 setSelectedDepartment("Tous")
                 setSelectedStatus("Tous")
               }}
@@ -566,21 +593,41 @@ export default function PersonnelPage() {
               Affichage de <span className="font-semibold text-gray-900 dark:text-white">{(page-1)*limit+1}-{Math.min(page*limit, total)}</span> sur <span className="font-semibold text-gray-900 dark:text-white">{total}</span> employés
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => goToPage(page-1)} className="px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed text-sm">
+              <button 
+                onClick={() => goToPage(page-1)} 
+                disabled={page === 1}
+                className="px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              >
                 ←
               </button>
               {Array.from({ length: Math.min(7, totalPages) }).map((_, idx) => {
                 const p = Math.max(1, Math.min(totalPages, page - 3 + idx))
                 return (
-                  <button key={p} onClick={() => goToPage(p)} className={`px-2.5 py-1.5 rounded-md ${p===page? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white' : ''}`}>
+                  <button 
+                    key={p} 
+                    onClick={() => goToPage(p)} 
+                    className={`px-2.5 py-1.5 rounded-md ${p===page ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                  >
                     {p}
                   </button>
                 )
               })}
-              <button onClick={() => goToPage(page+1)} className="px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm">
+              <button 
+                onClick={() => goToPage(page+1)} 
+                disabled={page === totalPages}
+                className="px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              >
                 →
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Loading State */}
+        {loading && (
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Chargement...</p>
           </div>
         )}
 

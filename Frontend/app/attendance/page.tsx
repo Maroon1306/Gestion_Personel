@@ -1,14 +1,14 @@
+// attendance/page.tsx
 "use client"
 
 import { useState, useEffect } from "react"
 import MainLayout from "@/components/MainLayout"
-import { Clock, Calendar, Users, CheckCircle, XCircle, AlertCircle, Download, Filter, Search, Eye, Calculator, TrendingUp, BarChart } from "lucide-react"
+import { Clock, Calendar, Users, CheckCircle, XCircle, AlertCircle, Download, Filter, Eye, Calculator, TrendingUp, BarChart, FileText } from "lucide-react"
 import { useSearch } from "@/context/SearchContext"
 
 export default function AttendancePage() {
   const { search } = useSearch()
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
-  const [viewMode, setViewMode] = useState<'daily' | 'weekly' | 'monthly'>('daily')
   const [attendanceData, setAttendanceData] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [statsFor, setStatsFor] = useState<any | null>(null)
@@ -54,11 +54,17 @@ export default function AttendancePage() {
       }
       const body = await res.json()
       let data = body.data || []
-      // apply client-side search from navbar
+      
+      // Apply search from context
       if (search && search.trim()) {
         const q = search.toLowerCase()
-        data = data.filter((r: any) => (r.name || '').toLowerCase().includes(q) || (r.matricule || '').toLowerCase().includes(q))
+        data = data.filter((r: any) => 
+          (r.name || '').toLowerCase().includes(q) || 
+          (r.matricule || '').toLowerCase().includes(q) ||
+          (r.department || '').toLowerCase().includes(q)
+        )
       }
+      
       setAttendanceData(data)
     } catch (err) {
       console.error(err)
@@ -74,7 +80,7 @@ export default function AttendancePage() {
       const month = currentDate.getMonth() + 1
       const year = currentDate.getFullYear()
       
-      const res = await fetch(`${BACKEND}/performance/top-performers?month=${month}&year=${year}&limit=5`, { 
+      const res = await fetch(`${BACKEND}/api/performance/top-performers?month=${month}&year=${year}&limit=5`, { 
         credentials: 'include' 
       })
       if (!res.ok) return
@@ -88,12 +94,15 @@ export default function AttendancePage() {
   useEffect(() => {
     fetchAttendance()
     fetchPerformanceStats()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate, search])
 
   async function handleCheckIn(personnelId: number) {
     try {
-      const payload = { personnelId, date: selectedDate, checkInTime: new Date().toISOString() }
+      const payload = { 
+        personnelId, 
+        date: selectedDate, 
+        checkInTime: new Date().toISOString() 
+      }
       const res = await fetch(`${BACKEND}/attendance/checkin`, { 
         method: 'POST', 
         credentials: 'include', 
@@ -102,8 +111,6 @@ export default function AttendancePage() {
       })
       if (res.ok) {
         await fetchAttendance()
-        // Calculer automatiquement la performance après un check-in
-        await calculatePerformanceForPersonnel(personnelId)
       }
     } catch (err) {
       console.error(err)
@@ -115,8 +122,7 @@ export default function AttendancePage() {
       const payload = { 
         personnelId, 
         date: selectedDate, 
-        checkOutTime: new Date().toISOString(), 
-        pauseMinutes: 60 
+        checkOutTime: new Date().toISOString()
       }
       const res = await fetch(`${BACKEND}/attendance/checkout`, { 
         method: 'POST', 
@@ -126,8 +132,6 @@ export default function AttendancePage() {
       })
       if (res.ok) {
         await fetchAttendance()
-        // Calculer automatiquement la performance après un check-out
-        await calculatePerformanceForPersonnel(personnelId)
       }
     } catch (err) {
       console.error(err)
@@ -145,31 +149,9 @@ export default function AttendancePage() {
       })
       if (res.ok) {
         await fetchAttendance()
-        // Calculer automatiquement la performance après une absence
-        await calculatePerformanceForPersonnel(personnelId)
       }
     } catch (err) {
       console.error(err)
-    }
-  }
-
-  async function calculatePerformanceForPersonnel(personnelId: number) {
-    try {
-      const currentDate = new Date()
-      const month = currentDate.getMonth() + 1
-      const year = currentDate.getFullYear()
-      
-      await fetch(`${BACKEND}/performance/calculate/${personnelId}`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ month, year })
-      })
-      
-      // Rafraîchir les statistiques de performance
-      fetchPerformanceStats()
-    } catch (err) {
-      console.error('Error calculating performance:', err)
     }
   }
 
@@ -180,7 +162,7 @@ export default function AttendancePage() {
       const month = currentDate.getMonth() + 1
       const year = currentDate.getFullYear()
       
-      const res = await fetch(`${BACKEND}/performance/calculate-all`, {
+      const res = await fetch(`${BACKEND}/api/performance/calculate-all`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -200,23 +182,30 @@ export default function AttendancePage() {
     }
   }
 
-  async function handleDownloadReport(personnelId: number) {
+  async function handleDownloadPersonalReport(personnelId: number, name: string) {
     try {
       const month = new Date(selectedDate).getMonth() + 1
       const year = new Date(selectedDate).getFullYear()
-      const res = await fetch(`${BACKEND}/attendance/report/${personnelId}?month=${month}&year=${year}`, { credentials: 'include' })
-      if (!res.ok) return
+      const res = await fetch(`${BACKEND}/attendance/report/${personnelId}?month=${month}&year=${year}`, { 
+        credentials: 'include' 
+      })
+      if (!res.ok) {
+        alert('Erreur lors de la génération du PDF')
+        return
+      }
+      
       const blob = await res.blob()
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `report_${personnelId}_${year}_${month}.pdf`
+      a.download = `rapport_${name.replace(/\s+/g, '_')}_${year}_${month}.pdf`
       document.body.appendChild(a)
       a.click()
       a.remove()
       window.URL.revokeObjectURL(url)
     } catch (err) {
       console.error(err)
+      alert('Erreur lors du téléchargement')
     }
   }
 
@@ -224,7 +213,9 @@ export default function AttendancePage() {
     try {
       const month = new Date(selectedDate).getMonth() + 1
       const year = new Date(selectedDate).getFullYear()
-      const res = await fetch(`${BACKEND}/performance/monthly-stats/${personnelId}?month=${month}&year=${year}`, { credentials: 'include' })
+      const res = await fetch(`${BACKEND}/api/performance/monthly-stats/${personnelId}?month=${month}&year=${year}`, { 
+        credentials: 'include' 
+      })
       if (!res.ok) return
       const body = await res.json()
       setStatsFor({ personnelId, ...body.data })
@@ -240,10 +231,20 @@ export default function AttendancePage() {
     return parseFloat(dailyPercentage.toFixed(2))
   }
 
+  // Calculer les statistiques réelles
+  const presentCount = attendanceData.filter(r => r.status === 'present').length
+  const totalHours = attendanceData.reduce((s, r) => s + Number(r.hoursWorked || 0), 0)
+  const avgPerformance = attendanceData.length > 0 
+    ? ((attendanceData.reduce((s, r) => s + calculateDailyPerformance(Number(r.hoursWorked || 0)), 0)) / attendanceData.length).toFixed(1)
+    : '0'
+  const presenceRate = attendanceData.length 
+    ? Math.round((presentCount / attendanceData.length) * 100)
+    : 0
+
   return (
     <MainLayout>
       <div className="p-2 md:p-2 space-y-4 mr-6">
-        {/* Header avec bouton de calcul */}
+        {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold text-gray-900 dark:text-white">Pointage du Personnel</h1>
@@ -260,32 +261,24 @@ export default function AttendancePage() {
               <Calculator className="w-4 h-4" />
               {calculating ? 'Calcul en cours...' : 'Calculer Performance'}
             </button>
-            <button onClick={() => { /* export full day - optional */ }} className="px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-2">
-              <Download className="w-4 h-4" />
-              Exporter
-            </button>
-            <button className="px-5 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg font-medium hover:shadow-md transition-all text-sm">
-              Pointage Manuel
-            </button>
           </div>
         </div>
 
-        {/* Stats Cards avec performance */}
+        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-4 text-white">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm opacity-80">Présents Aujourd'hui</p>
-                <p className="text-2xl font-bold mt-2">{attendanceData.filter(r => r.status === 'present').length}</p>
+                <p className="text-2xl font-bold mt-2">{presentCount}</p>
               </div>
               <div className="p-2.5 bg-emerald-500/20 rounded-lg">
                 <CheckCircle className="w-5 h-5 text-emerald-400" />
               </div>
             </div>
             <div className="mt-4 pt-3 border-t border-gray-700">
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-emerald-400">&nbsp;</span>
-                <span className="opacity-70">&nbsp;</span>
+              <div className="text-xs opacity-70">
+                sur {attendanceData.length} employés
               </div>
             </div>
           </div>
@@ -295,7 +288,7 @@ export default function AttendancePage() {
               <div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Heures Travail</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
-                  {(attendanceData.reduce((s, r) => s + Number(r.hoursWorked || 0), 0)).toFixed(2)}h
+                  {totalHours.toFixed(2)}h
                 </p>
               </div>
               <div className="p-2.5 bg-blue-500/10 rounded-lg">
@@ -303,7 +296,7 @@ export default function AttendancePage() {
               </div>
             </div>
             <div className="mt-2 text-xs text-gray-500">
-              Performance du jour: {calculateDailyPerformance(attendanceData.reduce((s, r) => s + Number(r.hoursWorked || 0), 0))}%
+              Performance du jour: {calculateDailyPerformance(totalHours)}%
             </div>
           </div>
 
@@ -312,9 +305,7 @@ export default function AttendancePage() {
               <div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Performance Moy.</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
-                  {attendanceData.length > 0 
-                    ? ((attendanceData.reduce((s, r) => s + calculateDailyPerformance(Number(r.hoursWorked || 0)), 0)) / attendanceData.length).toFixed(1) 
-                    : '0'}%
+                  {avgPerformance}%
                 </p>
               </div>
               <div className="p-2.5 bg-amber-500/10 rounded-lg">
@@ -328,7 +319,7 @@ export default function AttendancePage() {
               <div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Taux Présence</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
-                  {attendanceData.length ? Math.round((attendanceData.filter(r => r.status === 'present').length / attendanceData.length) * 100) : 0}%
+                  {presenceRate}%
                 </p>
               </div>
               <div className="p-2.5 bg-emerald-500/10 rounded-lg">
@@ -414,24 +405,6 @@ export default function AttendancePage() {
               </div>
             </div>
             <div className="flex items-end gap-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Vue</label>
-                <div className="flex gap-2">
-                  {['daily', 'weekly', 'monthly'].map((mode) => (
-                    <button
-                      key={mode}
-                      onClick={() => setViewMode(mode as any)}
-                      className={`px-4 py-2 rounded-md text-sm capitalize transition-all ${
-                        viewMode === mode 
-                          ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm' 
-                          : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      {mode === 'daily' ? 'Journalier' : mode === 'weekly' ? 'Hebdo' : 'Mensuel'}
-                    </button>
-                  ))}
-                </div>
-              </div>
               <button className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                 <Filter className="w-4 h-4" />
                 Filtres
@@ -440,13 +413,13 @@ export default function AttendancePage() {
           </div>
         </div>
 
-        {/* Attendance Table avec colonne performance */}
+        {/* Attendance Table */}
         <div className="bg-white dark:bg-gray-900 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800">
           <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-gray-900 dark:text-white">Pointage du {selectedDate}</h2>
               <span className="text-sm text-gray-500 dark:text-gray-400">
-                {attendanceData.length} employés • {attendanceData.filter(r => r.status === 'present').length} présents
+                {attendanceData.length} employés • {presentCount} présents
               </span>
             </div>
           </div>
@@ -542,11 +515,37 @@ export default function AttendancePage() {
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2">
-                          <button onClick={() => handleCheckIn(record.personnelId)} className="px-3 py-1 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-sm">Entrée</button>
-                          <button onClick={() => handleCheckOut(record.personnelId)} className="px-3 py-1 rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 text-sm">Sortie</button>
-                          <button onClick={() => handleAbsent(record.personnelId)} className="px-3 py-1 rounded-md bg-rose-50 text-rose-700 hover:bg-rose-100 text-sm">Absent</button>
-                          <button onClick={() => handleShowStats(record.personnelId)} className="px-2 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 text-sm">Stats</button>
-                          <button onClick={() => calculatePerformanceForPersonnel(record.personnelId)} className="px-2 py-1 rounded-md bg-purple-50 text-purple-700 hover:bg-purple-100 text-sm">Calc</button>
+                          <button 
+                            onClick={() => handleCheckIn(record.personnelId)} 
+                            className="px-3 py-1 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-sm"
+                          >
+                            Entrée
+                          </button>
+                          <button 
+                            onClick={() => handleCheckOut(record.personnelId)} 
+                            className="px-3 py-1 rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 text-sm"
+                          >
+                            Sortie
+                          </button>
+                          <button 
+                            onClick={() => handleAbsent(record.personnelId)} 
+                            className="px-3 py-1 rounded-md bg-rose-50 text-rose-700 hover:bg-rose-100 text-sm"
+                          >
+                            Absent
+                          </button>
+                          <button 
+                            onClick={() => handleShowStats(record.personnelId)} 
+                            className="px-2 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 text-sm"
+                          >
+                            Stats
+                          </button>
+                          <button 
+                            onClick={() => handleDownloadPersonalReport(record.personnelId, record.name)} 
+                            className="px-2 py-1 rounded-md bg-purple-50 text-purple-700 hover:bg-purple-100 text-sm flex items-center gap-1"
+                          >
+                            <FileText className="w-3 h-3" />
+                            PDF
+                          </button>
                         </div>
                       </td>
                     </tr>
