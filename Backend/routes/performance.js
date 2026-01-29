@@ -23,18 +23,18 @@ async function calculatePerformance(personnelId, month, year) {
         `, [personnelId, month, year]);
 
         const totalHours = parseFloat(attendance[0]?.total_hours) || 0;
-        
+
         // Calcul du pourcentage de performance
         let performancePercentage = 0;
-        
+
         if (totalHours > 0) {
             performancePercentage = (totalHours / MONTHLY_TARGET_HOURS) * 100;
-            
+
             // Limiter à 100% (sauf si heures supplémentaires)
             if (performancePercentage > 100) {
                 performancePercentage = 100 + ((performancePercentage - 100) / 10); // Bonus réduit pour heures sup
             }
-            
+
             // Arrondir à 2 décimales
             performancePercentage = Math.min(performancePercentage, 200); // Limite max 200%
             performancePercentage = parseFloat(performancePercentage.toFixed(2));
@@ -119,14 +119,14 @@ router.post('/calculate/:personnelId', async (req, res) => {
     try {
         const { personnelId } = req.params;
         const { month, year } = req.body;
-        
+
         const currentDate = new Date();
         const targetMonth = month || currentDate.getMonth() + 1;
         const targetYear = year || currentDate.getFullYear();
 
         const result = await calculatePerformance(
-            parseInt(personnelId), 
-            targetMonth, 
+            parseInt(personnelId),
+            targetMonth,
             targetYear
         );
 
@@ -148,7 +148,7 @@ router.post('/calculate/:personnelId', async (req, res) => {
 router.post('/calculate-all', async (req, res) => {
     try {
         const { month, year } = req.body;
-        
+
         const currentDate = new Date();
         const targetMonth = month || currentDate.getMonth() + 1;
         const targetYear = year || currentDate.getFullYear();
@@ -175,7 +175,7 @@ router.get('/monthly-stats/:personnelId', async (req, res) => {
     try {
         const { personnelId } = req.params;
         const { month, year } = req.query;
-        
+
         const currentDate = new Date();
         const targetMonth = month || currentDate.getMonth() + 1;
         const targetYear = year || currentDate.getFullYear();
@@ -230,7 +230,7 @@ router.get('/monthly-stats/:personnelId', async (req, res) => {
                 working_days_per_month: WORKING_DAYS_PER_MONTH
             },
             calculations: {
-                daily_performance: DAILY_TARGET_HOURS > 0 ? 
+                daily_performance: DAILY_TARGET_HOURS > 0 ?
                     ((attendance[0]?.total_hours || 0) / DAILY_TARGET_HOURS) * 4.6 : 0
             }
         };
@@ -253,42 +253,42 @@ router.get('/monthly-stats/:personnelId', async (req, res) => {
 router.get('/top-performers', async (req, res) => {
     try {
         const { month, year, limit = 10 } = req.query;
-        
+
         const currentDate = new Date();
         const targetMonth = month || currentDate.getMonth() + 1;
         const targetYear = year || currentDate.getFullYear();
 
         const [performers] = await db.query(`
-            SELECT 
-                p.id,
-                p.name,
-                p.matricule,
-                p.position,
-                p.department,
-                perf.performance_percentage,
-                perf.total_hours_worked,
-                RANK() OVER (ORDER BY perf.performance_percentage DESC) as rank
-            FROM performance perf
-            JOIN personnel p ON perf.personnel_id = p.id
-            WHERE perf.month = ? 
-            AND perf.year = ?
-            AND p.active = 1
-            ORDER BY perf.performance_percentage DESC
-            LIMIT ?
-        `, [targetMonth, targetYear, parseInt(limit)]);
+    SELECT 
+        p.id,
+        p.name,
+        p.matricule,
+        p.position,
+        p.department,
+        perf.performance_percentage,
+        perf.total_hours_worked,
+        RANK() OVER (ORDER BY perf.performance_percentage DESC) AS ranking
+    FROM performance perf
+    JOIN personnel p ON perf.personnel_id = p.id
+    WHERE perf.month = ? 
+    AND perf.year = ?
+    AND p.active = 1
+    ORDER BY perf.performance_percentage DESC
+    LIMIT ?
+`, [targetMonth, targetYear, parseInt(limit)]);
 
-        res.json({
-            success: true,
-            data: performers
-        });
+res.json({
+    success: true,
+    data: performers
+});
 
     } catch (error) {
-        console.error('Error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Erreur lors de la récupération des tops performances'
-        });
-    }
+    console.error('Error:', error);
+    res.status(500).json({
+        success: false,
+        error: 'Erreur lors de la récupération des tops performances'
+    });
+}
 });
 
 // Route: Calcul automatique quotidien (à appeler via cron job)
@@ -322,7 +322,7 @@ router.put('/config', async (req, res) => {
         const { monthly_target_hours, daily_target_hours, working_days_per_month } = req.body;
 
         const [config] = await db.query('SELECT id FROM performance_config LIMIT 1');
-        
+
         if (config.length > 0) {
             await db.query(`
                 UPDATE performance_config 
@@ -358,7 +358,7 @@ router.put('/config', async (req, res) => {
 router.get('/config', async (req, res) => {
     try {
         const [config] = await db.query('SELECT * FROM performance_config LIMIT 1');
-        
+
         if (config.length === 0) {
             // Insérer la configuration par défaut
             await db.query(`
@@ -366,7 +366,7 @@ router.get('/config', async (req, res) => {
                 (monthly_target_hours, daily_target_hours, working_days_per_month)
                 VALUES (176, 8, 22)
             `);
-            
+
             const [newConfig] = await db.query('SELECT * FROM performance_config LIMIT 1');
             res.json({
                 success: true,

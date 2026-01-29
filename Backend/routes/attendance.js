@@ -1,4 +1,4 @@
-// routes/attendance.js
+// routes/attendance.js - SECTION À CORRIGER
 const express = require('express')
 const router = express.Router()
 const pool = require('../db')
@@ -66,7 +66,6 @@ function toISOStringIfDate(v) {
   return d.toISOString()
 }
 
-// Dans routes/attendance.js, modifiez cette fonction :
 function computeTotalsFromSegments(segments) {
   let totalMs = 0
   for (const s of segments) {
@@ -82,7 +81,6 @@ function computeTotalsFromSegments(segments) {
   const overtime = Math.max(0, hours - 8)
   const status = hours >= 8 ? 'present' : (hours > 0 ? 'partial' : 'absent')
   
-  // Convertir en nombres JavaScript
   return { 
     hours: Number(parseFloat(hours).toFixed(2)), 
     overtime: Number(parseFloat(overtime).toFixed(2)), 
@@ -90,121 +88,137 @@ function computeTotalsFromSegments(segments) {
   }
 }
 
-// GET /attendance?date=YYYY-MM-DD&month=&year=
+// CORRECTION IMPORTANTE ICI : GET /attendance?date=YYYY-MM-DD&month=&year=
 router.get('/', async (req, res) => {
   try {
     await ensureAttendanceTables()
     const { date, month, year } = req.query
     
     if (!date && !month && !year) {
-      return res.status(400).json({ message: 'Date, month ou year requis' })
-    }
-
-    let query = `
-      SELECT p.id as personnelId, p.matricule, p.name, p.position, p.department, 
-             p.avatar_color as avatarColor, p.salary, p.performance,
-             a.id as attendanceId, a.hours_worked as hoursWorked, 
-             a.overtime_hours as overtimeHours, a.status
-      FROM personnel p
-      LEFT JOIN attendance a ON a.personnel_id = p.id
-      WHERE p.active = 1
-    `
-    const params = []
-    
-    if (date) {
-      query += ' AND a.date = ?'
-      params.push(date)
-    } else if (month && year) {
-      query += ' AND MONTH(a.date) = ? AND YEAR(a.date) = ?'
-      params.push(month, year)
-    } else {
-      // If no date specified, get today's attendance
+      // Si aucune date n'est spécifiée, utiliser aujourd'hui
       const today = new Date().toISOString().split('T')[0]
-      query += ' AND a.date = ?'
-      params.push(today)
+      return res.redirect(`/attendance?date=${today}`)
     }
-    
-    query += ' ORDER BY p.name ASC'
-    
-    const [rows] = await pool.query(query, params)
 
-    // If no attendance records exist for the date, create default entries
-    if (rows.length === 0 && date) {
-      const [allPersonnel] = await pool.query(
-        'SELECT id, matricule, name, position, department, avatar_color, salary, performance FROM personnel WHERE active = 1 ORDER BY name ASC'
-      )
-      
-      // Create pending attendance for all active personnel
-      for (const person of allPersonnel) {
-        try {
-          await pool.query(
-            'INSERT INTO attendance (personnel_id, date, status) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE status = VALUES(status)',
-            [person.id, date, 'pending']
+    let queryDate
+    if (date) {
+      queryDate = date
+    } else if (month && year) {
+      // Pour les requêtes mensuelles, on prend le premier jour du mois comme date de référence
+      queryDate = `${year}-${String(month).padStart(2, '0')}-01`
+    } else {
+      queryDate = new Date().toISOString().split('T')[0]
+    }
+
+    console.log(`Fetching attendance for date: ${queryDate}, original params:`, { date, month, year })
+
+    // 1. Récupérer TOUS les personnels actifs
+    const [allPersonnel] = await pool.query(
+      `SELECT id, matricule, name, position, department, avatar_color, salary, performance 
+       FROM personnel 
+       WHERE active = 1 
+       ORDER BY name ASC`
+    )
+
+    console.log(`Found ${allPersonnel.length} active personnel`)
+
+    // 2. Pour chaque personnel, vérifier/insérer un enregistrement d'attendance pour la date
+    const personnelIds = allPersonnel.map(p => p.id)
+    const attendanceRecords = []
+
+    for (const person of allPersonnel) {
+      try {
+        // Vérifier si un enregistrement existe déjà pour cette date
+        const [existingRows] = await pool.query(
+          'SELECT id FROM attendance WHERE personnel_id = ? AND date = ? LIMIT 1',
+          [person.id, queryDate]
+        )
+
+        let attendanceId
+        if (existingRows.length > 0) {
+          attendanceId = existingRows[0].id
+        } else {
+          // Créer un nouvel enregistrement avec status 'pending'
+          const [insertResult] = await pool.query(
+            'INSERT INTO attendance (personnel_id, date, status, hours_worked, overtime_hours) VALUES (?, ?, ?, ?, ?)',
+            [person.id, queryDate, 'pending', 0, 0]
           )
-        } catch (err) {
-          console.error('Error creating attendance:', err)
+          attendanceId = insertResult.insertId
         }
+
+        // Récupérer les détails complets de l'attendance
+        const [attendanceRows] = await pool.query(
+          'SELECT id, hours_worked, overtime_hours, status FROM attendance WHERE id = ? LIMIT 1',
+          [attendanceId]
+        )
+
+        const attendance = attendanceRows[0]
+
+        // Récupérer les segments pour cette attendance
+        const [segmentRows] = await pool.query(
+          `SELECT id, start_time, end_time, start_iso, end_iso 
+           FROM attendance_segments 
+           WHERE attendance_id = ? 
+           ORDER BY id ASC`,
+          [attendanceId]
+        )
+
+        const segments = segmentRows.map(s => ({
+          id: s.id,
+          start_time: s.start_iso || toISOStringIfDate(s.start_time),
+          end_time: s.end_iso || toISOStringIfDate(s.end_time)
+        }))
+
+        // Calculer checkIn et checkOut à partir des segments
+        const checkIn = segments.length > 0 ? segments[0].start_time : null
+        const checkOut = segments.length > 0 ? 
+          (segments[segments.length - 1].end_time || null) : null
+
+        attendanceRecords.push({
+          personnelId: person.id,
+          matricule: person.matricule,
+          name: person.name,
+          position: person.position,
+          department: person.department,
+          avatarColor: person.avatar_color || 'from-gray-400 to-gray-600',
+          salary: Number(person.salary || 0),
+          performance: Number(person.performance || 0),
+          attendanceId: attendance.id,
+          checkIn,
+          checkOut,
+          segments,
+          hoursWorked: Number(attendance.hours_worked || 0),
+          overtimeHours: Number(attendance.overtime_hours || 0),
+          status: attendance.status || 'pending'
+        })
+
+      } catch (err) {
+        console.error(`Error processing personnel ${person.id}:`, err)
       }
-      
-      // Re-fetch with created records
-      const [newRows] = await pool.query(query, params)
-      return res.json({ data: newRows.map(r => ({
-        ...r,
-        hoursWorked: 0,
-        overtimeHours: 0,
-        status: r.status || 'pending'
-      })) })
     }
 
-    // Get attendance ids to fetch segments
-    const attendanceIds = rows.filter(r => r.attendanceId).map(r => r.attendanceId)
-    let segmentsByAttendance = {}
-    if (attendanceIds.length) {
-      const [segRows] = await pool.query(
-        `SELECT id, attendance_id, start_time, end_time, start_iso, end_iso 
-         FROM attendance_segments 
-         WHERE attendance_id IN (${attendanceIds.map(() => '?').join(',')}) 
-         ORDER BY id ASC`, 
-        attendanceIds
+    console.log(`Returning ${attendanceRecords.length} attendance records`)
+
+    // 3. Filtrer par recherche si nécessaire (maintenant côté serveur)
+    let filteredData = attendanceRecords
+    if (req.query.search) {
+      const searchTerm = req.query.search.toLowerCase()
+      filteredData = attendanceRecords.filter(r => 
+        (r.name && r.name.toLowerCase().includes(searchTerm)) ||
+        (r.matricule && r.matricule.toLowerCase().includes(searchTerm)) ||
+        (r.department && r.department.toLowerCase().includes(searchTerm)) ||
+        (r.position && r.position.toLowerCase().includes(searchTerm))
       )
-      
-      segmentsByAttendance = segRows.reduce((acc, s) => {
-        if (!acc[s.attendance_id]) acc[s.attendance_id] = []
-        const start = s.start_iso || toISOStringIfDate(s.start_time)
-        const end = s.end_iso || toISOStringIfDate(s.end_time)
-        acc[s.attendance_id].push({ id: s.id, start_time: start, end_time: end })
-        return acc
-      }, {})
     }
 
-    const data = rows.map(r => {
-      const segs = r.attendanceId ? (segmentsByAttendance[r.attendanceId] || []) : []
-      const checkIn = segs.length ? segs[0].start_time : null
-      const checkOut = segs.length ? (segs[segs.length - 1].end_time || null) : null
-      
-      return {
-        personnelId: r.personnelId,
-        matricule: r.matricule,
-        name: r.name,
-        position: r.position,
-        department: r.department,
-        avatarColor: r.avatarColor || 'from-gray-400 to-gray-600',
-        salary: Number(r.salary || 0),
-        performance: Number(r.performance || 0),
-        attendanceId: r.attendanceId || null,
-        checkIn,
-        checkOut,
-        segments: segs,
-        hoursWorked: Number(r.hoursWorked || 0),
-        overtimeHours: Number(r.overtimeHours || 0),
-        status: r.status || 'pending'
-      }
+    res.json({ 
+      data: filteredData,
+      total: filteredData.length,
+      date: queryDate
     })
-
-    res.json({ data })
   } catch (err) {
     console.error('Error in GET /attendance:', err)
-    res.status(500).json({ message: 'Erreur serveur' })
+    res.status(500).json({ message: 'Erreur serveur', error: err.message })
   }
 })
 

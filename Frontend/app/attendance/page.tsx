@@ -45,15 +45,31 @@ export default function AttendancePage() {
   async function fetchAttendance() {
     try {
       setLoading(true)
-      const res = await fetch(`${BACKEND}/attendance?date=${selectedDate}`, { credentials: 'include' })
+      const res = await fetch(`${BACKEND}/attendance?date=${selectedDate}`, { 
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      })
+      
       if (!res.ok) {
-        console.error('Failed to fetch attendance')
+        console.error('Failed to fetch attendance', res.status, res.statusText)
         setAttendanceData([])
         setLoading(false)
         return
       }
+      
       const body = await res.json()
-      let data = body.data || []
+      console.log('Attendance API Response:', body) // Debug log
+      
+      // CORRECTION ICI : L'API retourne directement les données ou body.data ?
+      let data = Array.isArray(body) ? body : (body.data || body)
+      
+      if (!Array.isArray(data)) {
+        console.error('Invalid data format received:', data)
+        data = []
+      }
       
       // Apply search from context
       if (search && search.trim()) {
@@ -61,13 +77,14 @@ export default function AttendancePage() {
         data = data.filter((r: any) => 
           (r.name || '').toLowerCase().includes(q) || 
           (r.matricule || '').toLowerCase().includes(q) ||
-          (r.department || '').toLowerCase().includes(q)
+          (r.department || '').toLowerCase().includes(q) ||
+          (r.position || '').toLowerCase().includes(q)
         )
       }
       
       setAttendanceData(data)
     } catch (err) {
-      console.error(err)
+      console.error('Error fetching attendance:', err)
       setAttendanceData([])
     } finally {
       setLoading(false)
@@ -83,11 +100,17 @@ export default function AttendancePage() {
       const res = await fetch(`${BACKEND}/api/performance/top-performers?month=${month}&year=${year}&limit=5`, { 
         credentials: 'include' 
       })
-      if (!res.ok) return
+      if (!res.ok) {
+        console.log('Performance stats not available')
+        return
+      }
       const body = await res.json()
-      setPerformanceStats(body.data)
+      // CORRECTION : Vérifier le format de la réponse
+      const data = Array.isArray(body) ? body : (body.data || body)
+      setPerformanceStats(Array.isArray(data) ? data : [])
     } catch (err) {
-      console.error(err)
+      console.error('Error fetching performance stats:', err)
+      setPerformanceStats([])
     }
   }
 
@@ -111,9 +134,11 @@ export default function AttendancePage() {
       })
       if (res.ok) {
         await fetchAttendance()
+      } else {
+        console.error('Check-in failed:', res.status)
       }
     } catch (err) {
-      console.error(err)
+      console.error('Error during check-in:', err)
     }
   }
 
@@ -132,9 +157,11 @@ export default function AttendancePage() {
       })
       if (res.ok) {
         await fetchAttendance()
+      } else {
+        console.error('Check-out failed:', res.status)
       }
     } catch (err) {
-      console.error(err)
+      console.error('Error during check-out:', err)
     }
   }
 
@@ -149,9 +176,11 @@ export default function AttendancePage() {
       })
       if (res.ok) {
         await fetchAttendance()
+      } else {
+        console.error('Mark absent failed:', res.status)
       }
     } catch (err) {
-      console.error(err)
+      console.error('Error marking absent:', err)
     }
   }
 
@@ -171,8 +200,10 @@ export default function AttendancePage() {
       
       if (res.ok) {
         const data = await res.json()
-        alert(`Performance calculée pour ${data.data.length} employés`)
+        alert(`Performance calculée pour ${data.data?.length || data.length || 0} employés`)
         fetchPerformanceStats()
+      } else {
+        alert('Erreur lors du calcul de performance')
       }
     } catch (err) {
       console.error('Error calculating all performance:', err)
@@ -216,30 +247,46 @@ export default function AttendancePage() {
       const res = await fetch(`${BACKEND}/api/performance/monthly-stats/${personnelId}?month=${month}&year=${year}`, { 
         credentials: 'include' 
       })
-      if (!res.ok) return
+      if (!res.ok) {
+        console.log('Stats not available for this personnel')
+        return
+      }
       const body = await res.json()
-      setStatsFor({ personnelId, ...body.data })
+      // CORRECTION : Vérifier le format de la réponse
+      const data = body.data || body
+      setStatsFor({ personnelId, ...data })
     } catch (err) {
-      console.error(err)
+      console.error('Error fetching stats:', err)
     }
   }
 
   // Fonction pour calculer la performance quotidienne
   const calculateDailyPerformance = (hoursWorked: number) => {
     // 8h = 100% de la journée = 4.6% du mois (100% / 22 jours)
+    if (!hoursWorked || hoursWorked <= 0) return 0
     const dailyPercentage = (hoursWorked / 8) * 4.6
     return parseFloat(dailyPercentage.toFixed(2))
   }
 
   // Calculer les statistiques réelles
   const presentCount = attendanceData.filter(r => r.status === 'present').length
-  const totalHours = attendanceData.reduce((s, r) => s + Number(r.hoursWorked || 0), 0)
+  const totalHours = attendanceData.reduce((s, r) => s + Number(r.hoursWorked || r.hours_worked || 0), 0)
   const avgPerformance = attendanceData.length > 0 
-    ? ((attendanceData.reduce((s, r) => s + calculateDailyPerformance(Number(r.hoursWorked || 0)), 0)) / attendanceData.length).toFixed(1)
-    : '0'
+    ? parseFloat((attendanceData.reduce((s, r) => s + calculateDailyPerformance(Number(r.hoursWorked || r.hours_worked || 0)), 0) / attendanceData.length).toFixed(1))
+    : 0
   const presenceRate = attendanceData.length 
     ? Math.round((presentCount / attendanceData.length) * 100)
     : 0
+
+  // Fonction pour formater l'heure
+  const formatTime = (timeString: string | null) => {
+    if (!timeString) return '--:--'
+    try {
+      return new Date(timeString).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    } catch {
+      return timeString
+    }
+  }
 
   return (
     <MainLayout>
@@ -344,7 +391,7 @@ export default function AttendancePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
               {performanceStats.slice(0, 5).map((performer: any, index: number) => (
                 <div 
-                  key={performer.id} 
+                  key={performer.id || performer.personnelId || index} 
                   className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                 >
                   <div className="flex items-center justify-between mb-2">
@@ -355,15 +402,15 @@ export default function AttendancePage() {
                         index === 2 ? 'from-amber-700 to-orange-500' :
                         'from-blue-500 to-cyan-500'
                       } flex items-center justify-center`}>
-                        <span className="text-white text-xs font-bold">{performer.name.charAt(0)}</span>
+                        <span className="text-white text-xs font-bold">{(performer.name || '?').charAt(0)}</span>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{performer.name}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{performer.department}</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{performer.name || 'N/A'}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{performer.department || ''}</p>
                       </div>
                     </div>
                     <span className="text-lg font-bold text-gray-900 dark:text-white">
-                      {performer.performance_percentage}%
+                      {performer.performance_percentage || performer.performance || 0}%
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
@@ -374,12 +421,12 @@ export default function AttendancePage() {
                         index === 2 ? 'bg-gradient-to-r from-amber-700 to-orange-500' :
                         'bg-gradient-to-r from-blue-500 to-cyan-500'
                       }`}
-                      style={{ width: `${Math.min(100, performer.performance_percentage)}%` }}
+                      style={{ width: `${Math.min(100, performer.performance_percentage || performer.performance || 0)}%` }}
                     />
                   </div>
                   <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
                     <span>#{index + 1}</span>
-                    <span>{performer.total_hours_worked}h travaillées</span>
+                    <span>{(performer.total_hours_worked || performer.hours_worked || 0)}h travaillées</span>
                   </div>
                 </div>
               ))}
@@ -441,13 +488,17 @@ export default function AttendancePage() {
                 {loading && (
                   <tr><td colSpan={8} className="px-5 py-6 text-center text-gray-500">Chargement...</td></tr>
                 )}
+                {!loading && attendanceData.length === 0 && (
+                  <tr><td colSpan={8} className="px-5 py-6 text-center text-gray-500">Aucun pointage trouvé pour cette date</td></tr>
+                )}
                 {!loading && attendanceData.map((record) => {
                   const statusConfig = getStatusConfig(record.status)
-                  const dailyPerformance = calculateDailyPerformance(Number(record.hoursWorked || 0))
+                  const hoursWorked = Number(record.hoursWorked || record.hours_worked || 0)
+                  const dailyPerformance = calculateDailyPerformance(hoursWorked)
                   
                   return (
                     <tr 
-                      key={record.personnelId}
+                      key={record.id || record.personnelId}
                       className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                     >
                       <td className="px-5 py-3.5">
@@ -456,39 +507,39 @@ export default function AttendancePage() {
                             <span className="text-white text-sm font-bold">{(record.name || '').charAt(0)}</span>
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-gray-900 dark:text-white">{record.name}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">{record.matricule}</p>
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">{record.name || 'N/A'}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{record.matricule || ''}</p>
                           </div>
                         </div>
                       </td>
                       <td className="px-5 py-3.5">
-                        <span className="text-sm text-gray-700 dark:text-gray-300">{record.position}</span>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{record.position || ''}</span>
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2">
                           <Clock className="w-4 h-4 text-gray-400" />
-                          <span className={`text-sm ${record.checkIn ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}>
-                            {record.checkIn ? new Date(record.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                          <span className={`text-sm ${record.check_in || record.checkIn ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}>
+                            {formatTime(record.check_in || record.checkIn)}
                           </span>
                         </div>
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2">
                           <Clock className="w-4 h-4 text-gray-400" />
-                          <span className={`text-sm ${record.checkOut ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}>
-                            {record.checkOut ? new Date(record.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                          <span className={`text-sm ${record.check_out || record.checkOut ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}>
+                            {formatTime(record.check_out || record.checkOut)}
                           </span>
                         </div>
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-gray-900 dark:text-white">
-                            {(Number(record.hoursWorked || 0)).toFixed(2)}h
+                            {hoursWorked.toFixed(2)}h
                           </span>
                           <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
                             <div 
                               className={`h-1.5 rounded-full bg-gradient-to-r ${record.avatarColor || 'from-gray-400 to-gray-600'}`}
-                              style={{ width: `${Math.min(100, (Number(record.hoursWorked || 0) / 8) * 100)}%` }}
+                              style={{ width: `${Math.min(100, (hoursWorked / 8) * 100)}%` }}
                             />
                           </div>
                         </div>
@@ -516,31 +567,34 @@ export default function AttendancePage() {
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2">
                           <button 
-                            onClick={() => handleCheckIn(record.personnelId)} 
+                            onClick={() => handleCheckIn(record.personnelId || record.id)} 
                             className="px-3 py-1 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-sm"
+                            disabled={record.status === 'present'}
                           >
                             Entrée
                           </button>
                           <button 
-                            onClick={() => handleCheckOut(record.personnelId)} 
+                            onClick={() => handleCheckOut(record.personnelId || record.id)} 
                             className="px-3 py-1 rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 text-sm"
+                            disabled={!record.check_in && !record.checkIn}
                           >
                             Sortie
                           </button>
                           <button 
-                            onClick={() => handleAbsent(record.personnelId)} 
+                            onClick={() => handleAbsent(record.personnelId || record.id)} 
                             className="px-3 py-1 rounded-md bg-rose-50 text-rose-700 hover:bg-rose-100 text-sm"
+                            disabled={record.status === 'absent'}
                           >
                             Absent
                           </button>
                           <button 
-                            onClick={() => handleShowStats(record.personnelId)} 
+                            onClick={() => handleShowStats(record.personnelId || record.id)} 
                             className="px-2 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 text-sm"
                           >
                             Stats
                           </button>
                           <button 
-                            onClick={() => handleDownloadPersonalReport(record.personnelId, record.name)} 
+                            onClick={() => handleDownloadPersonalReport(record.personnelId || record.id, record.name)} 
                             className="px-2 py-1 rounded-md bg-purple-50 text-purple-700 hover:bg-purple-100 text-sm flex items-center gap-1"
                           >
                             <FileText className="w-3 h-3" />
@@ -562,10 +616,10 @@ export default function AttendancePage() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-sm font-medium text-gray-900 dark:text-white">
-                  Statistiques de Performance - {statsFor.personnel?.name}
+                  Statistiques de Performance - {statsFor.personnel?.name || statsFor.name || 'N/A'}
                 </h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {statsFor.personnel?.matricule} • {statsFor.personnel?.department}
+                  {statsFor.personnel?.matricule || statsFor.matricule || ''} • {statsFor.personnel?.department || statsFor.department || ''}
                 </p>
               </div>
               <button 
@@ -580,7 +634,7 @@ export default function AttendancePage() {
               <div className="bg-gradient-to-br from-emerald-500 to-green-500 rounded-lg p-4 text-white">
                 <p className="text-sm opacity-90">Performance Mensuelle</p>
                 <p className="text-2xl font-bold mt-2">
-                  {statsFor.performance?.performance_percentage || 0}%
+                  {statsFor.performance?.performance_percentage || statsFor.performance_percentage || 0}%
                 </p>
                 <div className="text-xs mt-1 opacity-80">
                   sur {statsFor.targets?.monthly_target_hours || 176}h cible
@@ -590,20 +644,20 @@ export default function AttendancePage() {
               <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4">
                 <p className="text-sm text-gray-600 dark:text-gray-400">Heures Travaillées</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
-                  {statsFor.attendance?.total_hours || 0}h
+                  {statsFor.attendance?.total_hours || statsFor.total_hours || 0}h
                 </p>
                 <div className="text-xs text-gray-500 mt-1">
-                  {statsFor.attendance?.present_days || 0} jours présents
+                  {statsFor.attendance?.present_days || statsFor.present_days || 0} jours présents
                 </div>
               </div>
               
               <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4">
                 <p className="text-sm text-gray-600 dark:text-gray-400">Jours d'absence</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
-                  {statsFor.attendance?.absent_days || 0}
+                  {statsFor.attendance?.absent_days || statsFor.absent_days || 0}
                 </p>
                 <div className="text-xs text-gray-500 mt-1">
-                  Performance quotidienne: {statsFor.calculations?.daily_performance?.toFixed(2) || 0}%
+                  Performance quotidienne: {(statsFor.calculations?.daily_performance || 0).toFixed(2)}%
                 </div>
               </div>
             </div>
@@ -612,8 +666,8 @@ export default function AttendancePage() {
               <p className="font-medium mb-2">Calcul de performance :</p>
               <ul className="space-y-1 text-xs">
                 <li>• Heures cible mensuelle: {statsFor.targets?.monthly_target_hours || 176}h (22 jours × 8h)</li>
-                <li>• Heures travaillées: {statsFor.attendance?.total_hours || 0}h</li>
-                <li>• Performance: ({statsFor.attendance?.total_hours || 0} ÷ {statsFor.targets?.monthly_target_hours || 176}) × 100 = {statsFor.performance?.performance_percentage || 0}%</li>
+                <li>• Heures travaillées: {statsFor.attendance?.total_hours || statsFor.total_hours || 0}h</li>
+                <li>• Performance: ({(statsFor.attendance?.total_hours || statsFor.total_hours || 0)} ÷ {(statsFor.targets?.monthly_target_hours || 176)}) × 100 = {statsFor.performance?.performance_percentage || statsFor.performance_percentage || 0}%</li>
                 <li>• Performance quotidienne cible: 4.6% (100% ÷ 22 jours)</li>
               </ul>
             </div>
